@@ -15,6 +15,9 @@ A Parallel Processing final project. It grades large batches of student exams
 | `students.py` | Makes the fake students and holds the grading rules (shared by both versions) |
 | `sequential.py` | Grades students one at a time on 1 core |
 | `parallel.py` | Splits students across all cores, then compares sequential vs parallel |
+| `app.py` | Opens the step-by-step web interface and runs the real benchmarks behind it |
+| `web/` | The interface page, its font and the mascot images |
+| `test_app.py` | Quick check that the interface's server rejects bad input and that parallel matches sequential |
 
 ## How the parallel version works
 1. Split **S** students into **C** chunks (S/C students each, C = number of CPU cores)
@@ -25,9 +28,16 @@ A Parallel Processing final project. It grades large batches of student exams
 Needs Python 3.8+ and nothing else to install.
 
 ```
+python app.py          # step-by-step interface in your browser (Ctrl+C to stop)
 python sequential.py   # ~5 seconds, 100,000 students
 python parallel.py     # ~1 minute, demo + benchmark up to 1,000,000 students
 ```
+
+`python app.py` opens a page where Exa, the mascot, walks you through the project:
+grading one exam, why one core isn't enough, picking the batch size and number of
+workers, predicting the winner, then a real sequential vs parallel race with time,
+speedup and efficiency charts. It builds the 1,000,000 test students in the
+background when it starts (about a minute), so give it a moment before the first run.
 
 ## Results (12-core PC)
 | Students | Sequential | Parallel | Speedup | Efficiency |

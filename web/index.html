@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ExaScore</title>
+<style>
+@font-face { font-family: Nunito; src: url(nunito.woff2) format("woff2"); font-weight: 600 900; font-display: swap; }
+
+:root {
+  --text: #1A1A1A; --body: #4B4B4B; --muted: #6B6B6B; --faint: #AFAFAF; --line: #E5E5E5; --soft: #F5F5F4;
+  --green: #86C77E; --green-edge: #62A35A;
+  --sage: #E0EFDF; --sage-chip: #8FBF88; --sage-text: #3D7536;
+  --butter: #F8EFC8; --butter-chip: #D9BE55;
+  --blue: #DFEAF9; --blue-chip: #8DB0E6; --blue-text: #3B6DB8;
+  --error: #D9584A; --error-soft: #FBE3DF; --error-text: #A63B2D;
+  --seq: #6E9BE0; --par: #E39A6A;          /* chart colors, checked for colorblind safety */
+  --ease: cubic-bezier(.2,.8,.2,1); --spring: cubic-bezier(.3,1.6,.5,1);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: #fff; color: var(--text);
+  font: 700 16px/1.45 Nunito, ui-rounded, "Segoe UI", system-ui, sans-serif;
+  display: grid; grid-template-rows: auto 1fr auto;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--blue-chip); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* ---------- top bar ---------- */
+.top { width: 100%; max-width: 1000px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 20px 16px 12px; }
+.icon-btn { width: 40px; height: 40px; border: 0; background: none; color: var(--faint); border-radius: 12px; display: grid; place-items: center; cursor: pointer; transition: color 120ms, transform 120ms var(--spring); flex: none; }
+.icon-btn:hover { color: var(--text); background: var(--soft); }
+.icon-btn:active { transform: scale(.9); }
+.icon-btn.spacer { visibility: hidden; }
+.progress { flex: 1; height: 16px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 999px; position: relative; transition: width 300ms var(--ease); }
+.progress i::after { content: ""; position: absolute; top: 4px; left: 8px; right: 8px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.4); }
+
+/* ---------- steps ---------- */
+main { overflow-y: auto; padding: 8px 16px 32px; }
+.step { max-width: 680px; margin: 0 auto; animation: rise 250ms var(--ease); }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes pop { from { transform: scale(.8); } }
+h1 { font-weight: 900; line-height: 1.2; letter-spacing: -.01em; }
+h1:focus-visible { outline: none; }   /* focused only so screen readers start reading each new step */
+h2 { font-size: 18px; font-weight: 900; margin: 28px 0 10px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Exa + speech bubble ---------- */
+.speech { display: flex; align-items: center; gap: 20px; margin: 8px 0 24px; }
+/* Images keep their own shape: same height for every pose, width follows the picture */
+.mascot { flex: none; max-width: 40%; }
+.mascot img { display: block; height: 170px; width: auto; max-width: 100%; object-fit: contain; animation: pop 300ms var(--spring); }
+.speech.big .mascot img { height: 220px; }
+.ph { width: 140px; aspect-ratio: 1; animation: pop 300ms var(--spring); border: 2px dashed #C4C4C4; border-radius: 18px; display: grid; place-content: center; gap: 2px; padding: 8px; text-align: center; font-size: 12px; color: var(--muted); }
+.speech.big .ph { width: 190px; }
+.ph b { font-size: 14px; color: var(--text); }
+.bubble { position: relative; flex: 1; min-width: 0; border: 2px solid var(--line); border-radius: 18px; padding: 16px 20px; background: #fff; }
+.bubble::before { content: ""; position: absolute; left: -10px; top: 50%; width: 16px; height: 16px; background: #fff; border-left: 2px solid var(--line); border-bottom: 2px solid var(--line); transform: translateY(-50%) rotate(45deg); }
+.bubble h1 { font-size: clamp(22px, 4.5vw, 28px); margin: 0; }
+.bubble p { margin: 8px 0 0; color: var(--body); font-size: 17px; }
+.bubble b { color: var(--text); }
+
+/* ---------- footer + buttons ---------- */
+.foot { border-top: 2px solid var(--line); background: #fff; transition: background 200ms; }
+.foot.good { background: var(--sage); border-color: transparent; }
+.foot.bad { background: var(--error-soft); border-color: transparent; }
+.foot-inner { max-width: 1000px; margin: 0 auto; padding: 20px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 96px; }
+.feedback { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 900; }
+.foot.good .feedback { color: var(--sage-text); }
+.foot.bad .feedback { color: var(--error-text); }
+.feedback .badge { width: 44px; height: 44px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; animation: pop 300ms var(--spring); }
+.feedback small { display: block; font-size: 15px; font-weight: 700; }
+.btn { border: 0; border-radius: 16px; padding: 14px 28px; min-width: 170px; margin-left: auto; background: var(--green); color: var(--text); font-weight: 900; font-size: 16px; letter-spacing: .02em; box-shadow: 0 4px 0 var(--green-edge); cursor: pointer; transition: transform 120ms var(--ease), box-shadow 120ms var(--ease), filter 120ms; }
+.btn:hover { filter: brightness(1.04); }
+.btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--green-edge); }
+.btn:disabled { background: var(--line); color: var(--faint); box-shadow: none; cursor: default; transform: none; filter: none; }
+.link-btn { border: 0; background: none; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 8px; }
+.link-btn:hover { color: var(--text); }
+
+/* ---------- choice cards ---------- */
+.choices { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.card { position: relative; text-align: left; background: #fff; border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 16px; padding: 16px 48px 16px 18px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: background 120ms, transform 120ms var(--spring); }
+.card:hover { background: #F7F7F7; }
+.card:active { transform: scale(.97); }
+.card[aria-pressed="true"] { background: var(--blue); border-color: var(--blue-chip); }
+.card b { font-size: 22px; font-weight: 900; }
+.card span { color: var(--muted); font-size: 15px; }
+.card .key { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border: 2px solid var(--line); border-radius: 8px; display: grid; place-items: center; font-size: 13px; color: var(--faint); }
+.card[aria-pressed="true"] .key { border-color: var(--blue-chip); color: var(--blue-text); }
+
+/* ---------- step 2: answer sheet ---------- */
+.student { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.sheet { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+.cell { aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--line); border-bottom-width: 3px; display: grid; place-items: center; font-weight: 900; font-size: 15px; }
+.cell.ok { background: var(--sage); border-color: var(--sage-chip); animation: pop 200ms var(--spring) var(--d) backwards; }
+.cell.bad { background: var(--error-soft); border-color: #EDA79C; color: var(--error-text); animation: pop 200ms var(--spring) var(--d) backwards; }
+.legend { display: flex; gap: 16px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
+.rows { display: grid; gap: 6px; }
+.row { display: flex; justify-content: space-between; gap: 12px; background: var(--soft); border-radius: 14px; padding: 12px 14px; animation: rise 250ms var(--ease) var(--d) backwards; }
+.row span { color: var(--muted); }
+
+/* ---------- tiles ---------- */
+.tiles { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 16px; }
+.tile { border-radius: 18px; padding: 14px 16px; background: var(--soft); color: var(--text); }
+.tile.sage { background: var(--sage); } .tile.butter { background: var(--butter); }
+.tile.blue { background: var(--blue); } .tile.error { background: var(--error-soft); }
+.tile small { display: block; font-size: 14px; color: rgba(26,26,26,.7); }
+.tile .big { font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+/* ---------- step 3: cores ---------- */
+.cores { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.core { width: 52px; height: 52px; border-radius: 14px; border: 2px solid var(--line); border-bottom-width: 4px; display: grid; place-items: center; font-size: 12px; color: var(--faint); animation: pop 200ms var(--spring) var(--d) backwards; }
+.core.on { background: var(--sage); border-color: var(--sage-chip); color: var(--sage-text); }
+
+/* ---------- step 7: how parallel works ---------- */
+.flow { display: grid; gap: 10px; }
+.box { border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 16px; padding: 14px 16px; animation: rise 250ms var(--ease) var(--d) backwards; }
+.box.students { background: var(--blue); border-color: var(--blue-chip); }
+.box.done { background: var(--sage); border-color: var(--sage-chip); }
+.box span, .worker span { display: block; color: var(--muted); font-size: 14px; }
+.box.students span, .box.done span { color: rgba(26,26,26,.7); }
+.arrow { text-align: center; color: var(--muted); font-size: 15px; animation: rise 250ms var(--ease) var(--d) backwards; }
+.workers { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.worker { border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 14px; padding: 10px 12px; font-size: 15px; animation: rise 250ms var(--ease) var(--d) backwards; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: var(--soft); padding: 1px 5px; border-radius: 6px; }
+
+/* ---------- step 8: running ---------- */
+.run-row { display: flex; align-items: center; gap: 12px; background: var(--soft); border-radius: 14px; padding: 16px; margin-bottom: 8px; }
+.run-row .label { flex: 1; }
+.run-row .label span { display: block; font-size: 14px; color: var(--muted); }
+.run-row .time { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: #C4C4C4; flex: none; }
+.dot.running { background: var(--butter-chip); animation: breathe 1.2s ease-in-out infinite; }
+.dot.done { background: var(--sage-chip); animation: pop 300ms var(--spring); }
+.dot.error { background: var(--error); }
+@keyframes breathe { 50% { opacity: .25; } }
+
+/* ---------- step 9: charts ---------- */
+.hbar { margin-bottom: 12px; }
+.hbar .meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.hbar .bar { height: 26px; border-radius: 0 4px 4px 0; transform-origin: left; animation: grow-x 400ms var(--ease); }
+@keyframes grow-x { from { transform: scaleX(0); } }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
+.vchart { position: relative; height: 200px; display: flex; align-items: flex-end; gap: 8px; border-bottom: 2px solid var(--line); padding-top: 24px; }
+.vcol { flex: 1; max-width: 72px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: default; }
+.vcol .val { font-size: 14px; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.vcol .bar { width: 100%; max-width: 44px; background: var(--seq); border-radius: 4px 4px 0 0; transform-origin: bottom; animation: grow-y 400ms var(--ease); }
+.vcol.latest .bar { background: var(--par); }
+@keyframes grow-y { from { transform: scaleY(0); } }
+.vlabels { display: flex; gap: 8px; margin-top: 6px; }
+.vlabels span { flex: 1; max-width: 72px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.25; }
+.ref { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--faint); pointer-events: none; }
+.ref span { position: absolute; right: 0; top: -22px; font-size: 12px; color: var(--muted); background: #fff; padding: 0 4px; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--text); color: #fff; font-size: 14px; padding: 6px 10px; border-radius: 10px; white-space: nowrap; }
+details { margin-top: 28px; }
+summary { cursor: pointer; font-size: 18px; font-weight: 900; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--muted); font-size: 14px; padding: 6px 8px; }
+td { padding: 8px; border-top: 2px solid var(--soft); }
+td:nth-child(n+4), th:nth-child(n+4) { text-align: right; }
+
+@media (max-width: 480px) {
+  .speech { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .mascot { max-width: 100%; }
+  .mascot img, .speech.big .mascot img { height: 130px; }
+  .ph, .speech.big .ph { width: 120px; }
+  .bubble::before { left: 40px; top: -10px; transform: rotate(135deg); }
+  .sheet { gap: 4px; } .cell { font-size: 12px; border-radius: 8px; }
+  .btn { min-width: 0; flex: 1; }
+  .foot-inner { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <button class="icon-btn" id="back" aria-label="Back">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="1" aria-valuemax="10"><i id="bar"></i></div>
+  <button class="icon-btn" id="mute" aria-label="Mute sound" aria-pressed="false"></button>
+</header>
+
+<!-- Every step starts with Exa talking. The words are set in ENTER below. -->
+<main id="main">
+  <section class="step" data-step="1">
+    <div class="speech big"><div class="mascot"></div><div class="bubble"></div></div>
+  </section>
+
+  <section class="step" data-step="2" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="student"><span id="s-name"></span><span class="muted" id="s-id"></span></div>
+    <div class="sheet" id="sheet"></div>
+    <div class="legend" id="legend" hidden>
+      <span><i style="background:var(--sage-chip)"></i>Correct</span>
+      <span><i style="background:#EDA79C"></i>Wrong (hover to see the key)</span>
+    </div>
+    <div id="breakdown" hidden>
+      <h2>Final grade</h2>
+      <div class="rows" id="weights"></div>
+      <div class="tiles" id="grade-tiles"></div>
+    </div>
+  </section>
+
+  <section class="step" data-step="3" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="cores" id="cores"></div>
+    <p class="muted" id="cores-note"></p>
+  </section>
+
+  <section class="step" data-step="4" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="choices" id="size-cards"></div>
+  </section>
+
+  <section class="step" data-step="5" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="choices" id="worker-cards"></div>
+  </section>
+
+  <section class="step" data-step="6" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="choices" id="guess-cards"></div>
+  </section>
+
+  <section class="step" data-step="7" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="flow" id="flow"></div>
+  </section>
+
+  <section class="step" data-step="8" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="run-row" id="run-prep"><i class="dot"></i><div class="label">Getting the exams ready<span>Not timed</span></div><b class="time">—</b></div>
+    <div class="run-row" id="run-seq"><i class="dot"></i><div class="label">Sequential<span>Exa alone, 1 core</span></div><b class="time">—</b></div>
+    <div class="run-row" id="run-par"><i class="dot"></i><div class="label">Parallel<span id="run-par-sub"></span></div><b class="time">—</b></div>
+  </section>
+
+  <section class="step" data-step="9" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+    <div class="tiles" id="result-tiles"></div>
+    <h2>This run</h2>
+    <div id="time-chart"></div>
+    <h2>Your runs so far</h2>
+    <p class="muted" style="margin:0 0 4px">Speedup for each run. Above the dashed line, parallel won.</p>
+    <div class="vchart" id="run-chart" role="img"></div>
+    <div class="vlabels" id="run-labels"></div>
+    <details>
+      <summary>Top 10 students</summary>
+      <table>
+        <thead><tr><th>Rank</th><th>ID</th><th>Name</th><th>Score</th><th>Grade</th></tr></thead>
+        <tbody id="top10"></tbody>
+      </table>
+    </details>
+  </section>
+
+  <section class="step" data-step="10" hidden>
+    <div class="speech"><div class="mascot"></div><div class="bubble"></div></div>
+  </section>
+</main>
+
+<footer class="foot" id="foot">
+  <div class="foot-inner">
+    <div class="feedback" id="feedback" aria-live="polite"></div>
+    <button class="link-btn" id="restart" hidden>Start over</button>
+    <button class="btn" id="next" disabled>Loading…</button>
+  </div>
+</footer>
+
+<div id="tip" hidden></div>
+
+<script>
+const $ = (sel, el = document) => el.querySelector(sel);
+const fmt = n => n.toLocaleString("en-US");
+const short = n => n >= 1e6 ? n / 1e6 + "M" : n / 1e3 + "k";
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const STEPS = 10;
+const state = { step: 1, info: null, size: 100000, workers: null, guess: null, graded: false, result: null, history: [] };
+
+/* ---------- Exa, the mascot ----------
+   Each pose is an image in web/mascot/<pose>.png. Until that file exists,
+   a dashed placeholder box shows which pose goes there. */
+const POSES = {
+  wave: "waving hello",
+  pen: "holding a big red pen",
+  thumbsup: "thumbs up, proud",
+  overwhelmed: "buried under a tower of exams",
+  point: "pointing at the choices",
+  team: "introducing a crew of mini Exas",
+  think: "hand on chin, thinking",
+  teach: "teacher with a pointer stick",
+  run: "running with a stopwatch",
+  cheer: "jumping and cheering",
+  sad: "sheepish oops face",
+  idea: "lightbulb moment, explaining",
+};
+// Load every pose up front: the server answers one request at a time, so an image
+// first asked for during a benchmark would stay blank until the benchmark ends
+Object.keys(POSES).forEach(pose => new Image().src = `mascot/${pose}.png`);
+function setPose(el, pose) {
+  if (el.dataset.pose === pose) return;
+  el.dataset.pose = pose;
+  el.innerHTML = `<img src="mascot/${pose}.png" alt="">`;
+  $("img", el).onerror = () => el.innerHTML = `<div class="ph"><b>${pose}.png</b>${POSES[pose]}</div>`;
+}
+// Exa says a line on the current step: a title, then a few short sentences
+function say(pose, title, ...lines) {
+  const step = $(`.step[data-step="${state.step}"]`);
+  setPose($(".mascot", step), pose);
+  $(".bubble", step).innerHTML = `<h1 tabindex="-1">${title}</h1>` + lines.map(line => `<p>${line}</p>`).join("");
+}
+
+/* ---------- sound: made in the browser, no files ---------- */
+let audio, muted = false;
+try { muted = localStorage.getItem("exascore-muted") === "1"; } catch {}
+function play(notes, type = "sine") {
+  if (muted) return;
+  audio ||= new AudioContext();
+  const now = audio.currentTime;
+  for (const [freq, at, length] of notes) {
+    const osc = audio.createOscillator(), gain = audio.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, now + at);
+    gain.gain.exponentialRampToValueAtTime(0.2, now + at + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + at + length);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(now + at); osc.stop(now + at + length + 0.05);
+  }
+}
+const ding = () => play([[880, 0, 0.18], [1318.5, 0.09, 0.35]]);
+const buzz = () => play([[196, 0, 0.18], [165, 0.12, 0.25]], "triangle");
+const SPEAKER = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/>';
+function drawMute() {
+  $("#mute").innerHTML = SPEAKER + (muted ? '<path d="M17 9l5 6M22 9l-5 6"/></svg>' : '<path d="M17 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12"/></svg>');
+  $("#mute").setAttribute("aria-pressed", muted);
+}
+$("#mute").onclick = () => {
+  muted = !muted; drawMute();
+  try { localStorage.setItem("exascore-muted", muted ? "1" : "0"); } catch {}
+};
+drawMute();
+
+/* ---------- footer ---------- */
+const next = $("#next");
+let nextAction = null;
+function setNext(label, action, enabled = true) {
+  next.textContent = label; nextAction = action; next.disabled = !enabled;
+}
+next.onclick = () => nextAction && nextAction();
+const CHECK = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3D7536" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+const CROSS = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A63B2D" stroke-width="3.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+function setFeedback(kind, title, detail = "") {
+  $("#foot").className = "foot" + (kind ? " " + kind : "");
+  $("#feedback").innerHTML = kind
+    ? `<span class="badge">${kind === "good" ? CHECK : CROSS}</span><div>${title}<small>${detail}</small></div>`
+    : "";
+}
+
+/* ---------- choice cards ---------- */
+function cards(container, options, current, onPick) {
+  container.innerHTML = options.map(([value, title, note], i) =>
+    `<button class="card" data-value="${value}" aria-pressed="${value === current}">
+       <span class="key">${i + 1}</span><b>${title}</b><span>${note}</span></button>`).join("");
+  container.onclick = e => {
+    const card = e.target.closest(".card");
+    if (!card) return;
+    container.querySelectorAll(".card").forEach(c => c.setAttribute("aria-pressed", c === card));
+    onPick(card.dataset.value);
+  };
+}
+
+/* ---------- numbers that count up ---------- */
+function countUp(el, to, show) {
+  if (reduceMotion) { el.textContent = show(to); return; }
+  const start = performance.now();
+  const tick = now => {
+    const p = Math.min(1, (now - start) / 650);
+    el.textContent = show(to * (1 - (1 - p) ** 3));
+    if (p < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- talking to Python ---------- */
+async function api(path) {
+  const response = await fetch(path);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
+/* ---------- moving between steps ---------- */
+function go(n, back = false) {
+  state.step = n;
+  document.querySelectorAll(".step").forEach(s => s.hidden = Number(s.dataset.step) !== n);
+  $("#bar").style.width = (n - 1) / (STEPS - 1) * 100 + "%";
+  $(".progress").setAttribute("aria-valuenow", n);
+  $("#back").classList.toggle("spacer", n === 1 || (n === 8 && !back));   // can't back out of a run that's still going
+  $("#restart").hidden = n !== 10;
+  setFeedback(null);
+  ENTER[n](back);
+  $("#main").scrollTop = 0;
+  $(`.step[data-step="${n}"] h1`).focus({ preventScroll: true });
+}
+$("#back").onclick = () => {
+  if (state.step === 2 && state.graded) { state.graded = false; go(2, true); }   // undo the grading first
+  else if (state.step > 1) go(state.step - 1, true);
+};
+$("#restart").onclick = () => { state.guess = null; go(1); };
+
+const outcomeOf = speedup => speedup > 1.1 ? "parallel" : speedup < 0.9 ? "sequential" : "same";
+
+const ENTER = {
+  1() {
+    if (!state.info) {
+      say("wave", "Hi! I'm Exa.", "I need Python running behind me to work. Close this tab and start me with <code>python app.py</code>.");
+      return setNext("Let's go", null, false);
+    }
+    say("wave", "Hi! I'm Exa.",
+      "I check exams. Like, <b>a lot</b> of exams.",
+      `Today I'll show you how I went from grading one student at a time to grading a million, using all ${state.info.cores} cores in this PC.`);
+    setNext("Let's go", () => go(2));
+  },
+
+  2() {
+    const { sample, key, weights } = state.info;
+    $("#s-name").textContent = sample.name;
+    $("#s-id").textContent = "Student #" + sample.id;
+    $("#legend").hidden = $("#breakdown").hidden = !state.graded;
+    if (!state.graded) {
+      say("pen", "Let's start with one exam.",
+        `This is ${sample.name.split(" ")[0]}'s final exam. 100 questions, all multiple choice.`,
+        "Tap <b>Grade it</b> and I'll check every answer against the key, one by one.");
+      $("#sheet").innerHTML = [...sample.sheet].map(letter => `<div class="cell">${letter}</div>`).join("");
+      setNext("Grade it", grade);
+    } else {
+      showGraded();
+      setNext("Continue", () => go(3));
+    }
+
+    function grade() {
+      [...$("#sheet").children].forEach((cell, i) => {
+        const right = sample.sheet[i] === key[i];
+        cell.className = "cell " + (right ? "ok" : "bad");
+        cell.style.setProperty("--d", i * 6 + "ms");
+        cell.dataset.tip = right ? `#${i + 1}: ${key[i]}, correct` : `#${i + 1}: answered ${sample.sheet[i]}, key is ${key[i]}`;
+      });
+      const correct = [...sample.sheet].filter((letter, i) => letter === key[i]).length;
+      const parts = [["Quiz", sample.quiz, weights.quiz], ["Project", sample.project, weights.project],
+                     ["Midterm", sample.midterm, weights.midterm], ["Final exam", correct, weights.final]];
+      $("#weights").innerHTML = parts.map(([name, score, w], i) =>
+        `<div class="row num" style="--d:${600 + i * 70}ms">${name}<span>${score} × ${w * 100}% = <b style="color:var(--text)">${(score * w).toFixed(2)}</b></span></div>`).join("");
+      const passed = sample.score >= state.info.threshold;
+      $("#grade-tiles").innerHTML =
+        `<div class="tile ${passed ? "sage" : "butter"}"><small>Final score</small><div class="big" id="score-num">0</div></div>
+         <div class="tile blue"><small>Grade</small><div class="big">${sample.grade}</div></div>`;
+      countUp($("#score-num"), sample.score, v => v.toFixed(2));
+      $("#legend").hidden = $("#breakdown").hidden = false;
+      state.graded = true;
+      showGraded();
+      setFeedback("good", `${correct} of 100 correct`, passed ? `Passed with ${sample.score}` : `Below ${state.info.threshold}`);
+      setNext("Continue", () => go(3));
+    }
+    function showGraded() {
+      say("thumbsup", "Done! That's sequential processing.",
+        "One answer after another, then I mix in the quiz, project and midterm for the final grade.",
+        "For one student, a computer does this in a blink. Easy, right?");
+    }
+  },
+
+  3() {
+    const cores = state.info.cores;
+    say("overwhelmed", "Okay, but what about a whole region?",
+      "Same job, <b>1,000,000 exams</b>. Still one at a time, on one core.",
+      `Meanwhile the other ${cores - 1} cores in this PC just... watch. That's kind of unreasonable, don't you think?`);
+    $("#cores").innerHTML = Array.from({ length: cores }, (_, i) =>
+      `<div class="core ${i ? "" : "on"}" style="--d:${i * 40}ms">${i ? "idle" : "busy"}</div>`).join("");
+    $("#cores-note").textContent = `1 core working, ${cores - 1} doing nothing.`;
+    setNext("So what do we do?", () => go(4));
+  },
+
+  4() {
+    say("point", "We split the pile and grade it together!",
+      "That's parallel processing. But first: how big is the pile?");
+    const notes = { 10000: "One big school", 100000: "A whole city", 1000000: "A whole region" };
+    cards($("#size-cards"), state.info.sizes.map(s => [String(s), fmt(s), notes[s]]), String(state.size),
+      v => state.size = Number(v));
+    setNext("Continue", () => go(5));
+  },
+
+  5() {
+    const cores = state.info.cores;
+    const options = [2, 4, 8, 16, 32, 64].filter(n => n < cores).concat(cores);
+    state.workers ??= cores;
+    say("team", "Now pick my crew.",
+      "Each worker is a copy of me running as its own Python process, on its own core.",
+      `This PC has ${cores} cores, so I can bring up to ${cores} of me.`);
+    cards($("#worker-cards"), options.map(n => [String(n), n + " workers", n === cores ? "Every core" : `${n} of ${cores} cores`]),
+      String(state.workers), v => state.workers = Number(v));
+    setNext("Continue", () => go(6));
+  },
+
+  6() {
+    say("think", "Quick, before the race: who wins?",
+      `Me alone on 1 core, or ${state.workers} of me at once, grading <b>${fmt(state.size)}</b> exams?`);
+    cards($("#guess-cards"), [
+      ["sequential", "Sequential", "Exa alone, no setup"],
+      ["parallel", "Parallel", `${state.workers} Exas at once`],
+      ["same", "About the same", "Less than 10% apart"],
+    ], state.guess, v => { state.guess = v; next.disabled = false; });
+    setNext("Lock it in", () => go(7), state.guess !== null);
+  },
+
+  7() {
+    const { size, workers } = state;
+    const chunk = Math.ceil(size / workers);
+    const shown = Math.min(workers, 8);
+    say("teach", "Here's the game plan.",
+      `I cut the pile into ${workers} chunks and hand one to each worker. Everyone grades, counts and sorts their own chunk <b>at the same time</b>.`,
+      "Then I merge it all into one answer. Same steps, different exams, all at once.");
+    $("#flow").innerHTML =
+      `<div class="box students" style="--d:0ms">${fmt(size)} exams<span>Each one has 100 answers to check</span></div>
+       <div class="arrow" style="--d:120ms">↓ split into ${workers} chunks of about ${fmt(chunk)}</div>
+       <div class="workers">${Array.from({ length: shown }, (_, i) =>
+         `<div class="worker" style="--d:${200 + i * 60}ms">Worker ${i + 1}<span>grade, count, sort</span><span><code>local_count</code></span></div>`).join("")}
+         ${workers > shown ? `<div class="worker" style="--d:${200 + shown * 60}ms">+${workers - shown} more<span>same steps</span></div>` : ""}</div>
+       <div class="arrow" style="--d:${300 + shown * 60}ms">↓ merge everything back together</div>
+       <div class="box done" style="--d:${400 + shown * 60}ms">One answer<span><code>global_count</code> = every <code>local_count</code> added up</span><span>One ranking, made by merging the sorted chunks</span></div>`;
+    setNext("Start the race", () => go(8));
+  },
+
+  async 8(back) {
+    const { size, workers } = state;
+    $("#run-par-sub").textContent = `${workers} Exas, ${workers} cores`;
+    if (back) {   // coming back from the results: show the finished run, don't run it again
+      say("thumbsup", "That's the race!", "Both versions crossed the finish line.");
+      document.querySelectorAll(".run-row .dot").forEach(dot => dot.className = "dot done");
+      setFeedback("good", "Done", "Both versions finished");
+      setNext("See results", () => go(9));
+      return;
+    }
+    say("run", "And we're off!", `This is real: Python is grading ${fmt(size)} exams on this PC right now. First me alone, then the whole crew.`);
+    document.querySelectorAll(".run-row").forEach(row => { $(".dot", row).className = "dot"; $(".time", row).textContent = "—"; });
+    setNext("Running…", null, false);
+    try {
+      await timed("prep", () => api("/api/prepare"));
+      await timed("seq", () => api(`/api/sequential?size=${size}`));
+      const result = await timed("par", () => api(`/api/parallel?size=${size}&workers=${workers}`));
+      state.result = { ...result, size, workers };
+      state.history = [...state.history, state.result].slice(-8);
+      if (state.step === 8) say("thumbsup", "That's the race!", "Both versions crossed the finish line.");
+      setFeedback("good", "Done", "Both versions finished");
+      setNext("See results", () => go(9));
+    } catch (err) {
+      if (state.step === 8) say("sad", "Uh oh, I tripped.", "Something went wrong while grading. Try again?");
+      setFeedback("bad", "Something went wrong", err.message);
+      setNext("Try again", () => go(8));
+    }
+    if (state.step === 8) $("#back").classList.remove("spacer");
+  },
+
+  9(back) {
+    const r = state.result, outcome = outcomeOf(r.speedup);
+    const right = state.guess === outcome;
+    const headline =
+      outcome === "parallel" ? `Parallel was ${r.speedup.toFixed(2)}× faster!`
+      : outcome === "sequential" ? `Wait, I was ${(1 / r.speedup).toFixed(2)}× faster alone?`
+      : "It's basically a tie!";
+    say(right ? "cheer" : "sad", headline,
+      r.same ? `${fmt(r.count)} of ${fmt(r.size)} students scored ${state.info.threshold} or higher. My crew and I got the <b>exact same answer</b>, so nobody cut corners.`
+             : "Hold on, my crew and I got <b>different answers</b>. Don't trust these times until the code is fixed.");
+
+    $("#result-tiles").innerHTML =
+      `<div class="tile ${r.speedup > 1 ? "sage" : "butter"}"><small>Speedup</small><div class="big" id="t-speedup">0</div></div>
+       <div class="tile"><small>Efficiency</small><div class="big" id="t-eff">0</div></div>
+       <div class="tile ${r.same ? "sage" : "error"}"><small>Results</small><div class="big">${r.same ? "Match" : "Differ"}</div></div>`;
+    countUp($("#t-speedup"), r.speedup, v => v.toFixed(2) + "×");
+    countUp($("#t-eff"), r.efficiency * 100, v => v.toFixed(1) + "%");
+
+    const longest = Math.max(r.seconds, r.seq_seconds);
+    $("#time-chart").innerHTML = [["Sequential", "1 core", r.seq_seconds, "--seq"], ["Parallel", `${r.workers} workers`, r.seconds, "--par"]]
+      .map(([name, note, s, color]) =>
+        `<div class="hbar" data-tip="${name}: ${s.toFixed(3)} seconds">
+           <div class="meta"><span><i class="swatch" style="background:var(${color})"></i>${name} <span class="muted">· ${note}</span></span><b class="num">${s.toFixed(3)}s</b></div>
+           <div class="bar" style="width:${s / longest * 100}%;background:var(${color})"></div></div>`).join("");
+
+    const top = Math.max(1.25, ...state.history.map(h => h.speedup)) * 1.1;
+    $("#run-chart").innerHTML =
+      `<div class="ref" style="bottom:${1 / top * 100}%"><span>1× = same speed</span></div>` +
+      state.history.map((h, i) =>
+        `<div class="vcol ${i === state.history.length - 1 ? "latest" : ""}" data-tip="${fmt(h.size)} students, ${h.workers} workers: ${h.speedup.toFixed(2)}× speedup">
+           <b class="val">${h.speedup.toFixed(2)}×</b><div class="bar" style="height:${h.speedup / top * 100}%"></div></div>`).join("");
+    $("#run-labels").innerHTML = state.history.map(h => `<span>${short(h.size)}<br>${h.workers}w</span>`).join("");
+    $("#run-chart").setAttribute("aria-label", "Speedup per run: " +
+      state.history.map(h => `${fmt(h.size)} students with ${h.workers} workers, ${h.speedup.toFixed(2)} times`).join("; "));
+
+    $("#top10").innerHTML = r.top.map(([id, name, score, grade], i) =>
+      `<tr><td>${i + 1}</td><td>${id}</td><td>${name}</td><td>${score.toFixed(2)}</td><td>${grade}</td></tr>`).join("");
+
+    const answer = { parallel: "Parallel won", sequential: "Sequential won", same: "It was a tie" }[outcome];
+    setFeedback(right ? "good" : "bad", right ? "You called it!" : "Not quite", answer);
+    if (!back) (right ? ding : buzz)();   // sound only the first time the result is revealed
+    setNext("Why?", () => go(10));
+  },
+
+  10() {
+    const r = state.result, outcome = outcomeOf(r.speedup);
+    const pct = (r.efficiency * 100).toFixed(1);
+    const bigger = r.size < state.info.sizes.at(-1) ? ["Try a bigger pile and watch the speedup climb."] : [];
+    if (outcome === "sequential") say("idea", "Plot twist: the pile was too small.",
+      `Waking up ${r.workers} workers, handing each one their exams and collecting everything back took longer than me just grading ${fmt(r.size)} exams myself.`,
+      "Parallel only pays off when there's enough work to share.", ...bigger);
+    else if (outcome === "same") say("idea", "Right at the break-even point.",
+      "The time my crew saved by sharing the work got eaten up by the time it took to start them and hand out the exams.", ...bigger);
+    else say("idea", `We won, but not ${r.workers}× faster. Why?`,
+      `With ${r.workers} workers the dream is ${r.workers}×. We got ${r.speedup.toFixed(2)}×, so each worker was busy about <b>${pct}%</b> of the time. That's the <b>efficiency</b>.`,
+      "Some jobs only I can do: handing out the exams and merging the results at the end. While I do those, my whole crew waits. That limit has a name: <b>Amdahl's law</b>.",
+      ...bigger);
+    setNext("Try another size", () => { state.guess = null; go(4); });
+  },
+};
+
+/* ---------- live timer for each run row ---------- */
+async function timed(id, call) {
+  const row = $("#run-" + id), dot = $(".dot", row), time = $(".time", row);
+  dot.className = "dot running";
+  const start = performance.now();
+  const timer = setInterval(() => time.textContent = ((performance.now() - start) / 1000).toFixed(1) + "s", 100);
+  try {
+    const data = await call();
+    dot.className = "dot done";
+    time.textContent = data.seconds === undefined ? "Ready" : data.seconds.toFixed(3) + "s";   // Python's own measurement
+    return data;
+  } catch (err) {
+    dot.className = "dot error"; time.textContent = "Failed";
+    throw err;
+  } finally {
+    clearInterval(timer);
+  }
+}
+
+/* ---------- hover tooltips ---------- */
+const tip = $("#tip");
+document.addEventListener("pointerover", e => {
+  const target = e.target.closest("[data-tip]");
+  tip.hidden = !target;
+  if (target) tip.textContent = target.dataset.tip;
+});
+document.addEventListener("pointermove", e => {
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
+  tip.style.top = e.clientY + 14 + "px";
+});
+
+/* ---------- keyboard: Enter = continue, 1-4 = pick a card ---------- */
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Enter" && !e.target.closest("button, summary") && !next.disabled) next.click();
+  const n = Number(e.key);
+  if (n >= 1 && n <= 9) $(`.step[data-step="${state.step}"] .card:nth-child(${n})`)?.click();
+});
+
+/* ---------- start ---------- */
+api("/api/info")
+  .then(info => { state.info = info; })
+  .catch(() => {})   // ENTER[1] explains how to start Python
+  .finally(() => go(1));
+</script>
+</body>
+</html>
