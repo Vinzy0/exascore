@@ -22,7 +22,7 @@ import time
 from multiprocessing import Pool
 
 from sequential import process_sequential
-from students import THRESHOLD, generate_students, grade_student, print_top, rank_key
+from students import THRESHOLD, generate_students, print_top, rank_key
 
 
 # ---------------------------------------------------------------------------
@@ -31,17 +31,10 @@ from students import THRESHOLD, generate_students, grade_student, print_top, ran
 def process_chunk(job):
     chunk, threshold = job
 
-    # Objective 1: grade every student in this chunk
-    results = [grade_student(s) for s in chunk]
-
-    # Objective 2: count students at or above the threshold IN THIS CHUNK ONLY
-    local_count = 0
-    for result in results:
-        if result[2] >= threshold:
-            local_count += 1
-
-    # Objective 3 (part 1): sort this chunk
-    results.sort(key=rank_key)
+    # Each worker runs the SAME sequential algorithm on its own chunk:
+    # grade every student, count those at or above the threshold
+    # (local_count, this chunk only), and sort the chunk.
+    results, local_count = process_sequential(chunk, threshold)
 
     return results, local_count
 
